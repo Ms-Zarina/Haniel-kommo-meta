@@ -137,6 +137,62 @@ Node.js + Express. Деплой — Render.
 
 ---
 
+## Деплой на Vercel
+
+Тот же код работает и на Vercel — Express-app экспортируется как serverless function через [`api/index.js`](api/index.js).
+`app.listen()` запускается **только локально**: на Vercel выставлена env `VERCEL=1` и listen пропускается.
+
+### Структура для Vercel
+
+```
+api/
+  index.js         # реэкспортирует Express app из ../server.js
+server.js          # вся бизнес-логика, роуты, middleware
+vercel.json        # rewrites: все пути → /api/index.js
+```
+
+### Шаги
+
+1. Запушь проект на GitHub (см. этот репозиторий).
+2. https://vercel.com → **Add New → Project** → Import репозитория.
+3. **Framework Preset**: Other (Vercel сам подхватит `vercel.json`).
+4. Build / Output settings оставь по умолчанию — ничего не переопределять.
+5. **Environment Variables** — добавь всё то же, что для Render
+   (META_*, KOMMO_*, QUALIFICATION_*, BOOKING_*, опц. THINKING/BOOKING/SUCCESSFULLY_STATUS_ID).
+   `PORT` и `VERCEL` **не задавай** — Vercel ставит сам.
+6. Deploy → получишь URL вида `https://haniel-kommo-meta.vercel.app`.
+7. Проверь:
+   ```
+   GET https://<vercel-url>/health
+   GET https://<vercel-url>/kommo/pipelines
+   GET https://<vercel-url>/mapping
+   ```
+8. В Kommo webhook укажи `https://<vercel-url>/webhook/kommo`.
+
+### vercel.json
+
+```json
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.js" }
+  ],
+  "functions": {
+    "api/index.js": { "maxDuration": 30 }
+  }
+}
+```
+
+`rewrites` перенаправляет **любой** входящий путь на единственную serverless-функцию `api/index.js`, внутри которой работает Express и сам разруливает роутинг (`/health`, `/webhook/kommo` и т.д.).
+
+### Особенности Vercel vs Render
+
+- **Cold start** — первый запрос после паузы может занять 1–3 сек.
+- **In-memory dedupe** (`sentEvents` Set) **сбрасывается между cold-start'ами**. Для критичных дублей лучше переехать на Render (постоянный процесс) или подключить Vercel KV / Upstash Redis.
+- **maxDuration**: на Hobby-плане до 60 сек, у нас стоит 30 — этого хватает на Kommo API + Meta CAPI.
+- Логи смотри в **Vercel → Project → Logs** (Functions tab).
+
+---
+
 ## Webhook в Kommo
 
 1. **Настройки → Интеграции → Создать интеграцию → Webhooks**.

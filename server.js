@@ -736,6 +736,16 @@ app.use((req, res) => {
   res.status(404).json({ ok: false, error: "Not found", path: req.path });
 });
 
-app.listen(PORT, () => {
-  console.log(`[${PROJECT_NAME}] server running on port ${PORT}`);
-});
+// ============================================================
+// Export / listen
+// ============================================================
+// На Vercel переменная VERCEL=1 проставляется автоматически — там app.listen()
+// не нужен, Vercel сам оборачивает экспортированный handler в serverless function.
+// Локально (npm start) — обычный Express-сервер.
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`[${PROJECT_NAME}] server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
