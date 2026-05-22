@@ -739,10 +739,17 @@ app.use((req, res) => {
 // ============================================================
 // Export / listen
 // ============================================================
-// На Vercel переменная VERCEL=1 проставляется автоматически — там app.listen()
-// не нужен, Vercel сам оборачивает экспортированный handler в serverless function.
-// Локально (npm start) — обычный Express-сервер.
-if (!process.env.VERCEL) {
+// Production-safe entrypoint detection.
+//   require.main === module  ->  файл запущен напрямую через `node server.js`
+//                                (а значит и через `npm start`, см. package.json).
+//                                Только в этом случае поднимаем настоящий HTTP-сервер.
+//   require.main !== module  ->  файл импортирован (require/import).
+//                                На Vercel сюда заходим из api/index.js — listen НЕ нужен,
+//                                Vercel сам оборачивает экспортированный Express app
+//                                в serverless function.
+// Этот критерий не зависит от переменных окружения и работает стабильно
+// на всех runtime'ах Vercel (Hobby/Pro, preview/production).
+if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`[${PROJECT_NAME}] server running on port ${PORT}`);
   });
